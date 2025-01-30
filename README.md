@@ -15,3 +15,32 @@ The project is designed as a set of modular Python functions that can be reused 
   - smtplib: Built-in module for SMTP communication.
   - platform: Built-in module for platform-specific commands.
   - re: Built-in module for regular expression operations.
+ 
+# Usage
+
+Install dependencies:
+- pip install dnspython
+
+Configuration:
+- Replace the default sender email i.e. 'validuser@yourdomain.com' with a valid email id in the main.py file in function 'def validate_email_smtp(email, sender_email='validuser@yourdomain.com')'.
+- To test the validity of an email, replace "email to test" with the email address you want to check in this line: email_to_check = "email to test".
+
+The project is structured into three main components:
+
+- ping.py: Contains the ping_domain function for pinging the domain.
+- dns_lookup.py: Contains the get_mx_record function to fetch MX records for a domain.
+- main.py: The main script that uses the above functions to validate email addresses.
+
+Run the Script:
+-  Run the main.py script as 'python main.py'.
+
+
+# License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+
+# Acknowledgements
+
+- Thanks to 'dnspython' for providing the DNS resolver.
+- Thanks to Python's built-in 'smtplib' module for handling SMTP interactions
