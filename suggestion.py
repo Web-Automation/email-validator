@@ -5,12 +5,10 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 # Commonly mistyped but valid email service domains
 COMMON_DOMAINS = [
-    "tax2win.in", "fisdom.com", "gmail.com", "yahoo.com", "outlook.com",
+    "gmail.com", "yahoo.com", "outlook.com", "rediffmail.com",
     "icloud.com", "protonmail.com", "live.com", "mail.com", "msn.com",
     "zoho.com", "gmx.com", "microsoft.com", "google.com", "nvidia.com", 
-    "intel.com", "hotstar.com", "cleartax.in", "quicko.com", "taxbuddy.com", 
-    "hotmail.com", "aol.com", "groww.com", "zerodha.com", "itrconsultant.in",
-    "rediffmail.com"
+    "intel.com", "hotstar.com", "hotmail.com", "aol.com", 
 ]
 
 
