@@ -1,8 +1,12 @@
 import smtplib
+import time
+import random
 import re
 from ping import ping_domain
 from dns_lookup import get_mx_record
 from suggestion import suggest_email_correction
+from suspicious_email import is_catch_all_domain
+
 
 
 """*********************************************************************************************************************************************************************************
@@ -13,7 +17,7 @@ from suggestion import suggest_email_correction
 * @returns {boolean} - Returns True if the email address is valid, False otherwise.
 **********************************************************************************************************************************************************************************"""
 
-def validate_email_smtp(email, sender_email='aliduser@yourdomain.com'):   # Replace with the sender_email with a valid email
+def validate_email_smtp(email, sender_email='validuser@yourdomain.com'):   # Replace with the sender_email with a valid email
     # Use regex to check if the email format is correct
     regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     if not re.match(regex, email):
@@ -37,16 +41,24 @@ def validate_email_smtp(email, sender_email='aliduser@yourdomain.com'):   # Repl
     if not mx_record:
         print(f"{email}: Unable to find a valid mail server (MX record).")
         return {"status": False, "reason": f"{email}: Unable to find a valid mail server (MX record)."}
+    
+    # If only one MX record exists, treat the email as suspicious (not valid)
+    if len(mx_record) == 1:
+        print(f"{email}: Only one MX record found, treating as suspicious.")
+        return {"status": False, "reason": f"{email}: Only one MX record found, treating as suspicious."}
+    
+    # Sort MX records by priority (ascending order)
+    sorted_mx = sorted(mx_record, key=lambda x: x[0])  # Sort by priority, where lower is higher priority
 
     # Try to connect to the SMTP server with a valid sender email for SMTP verification
     try:
-        print(f"Connecting to SMTP server: {mx_record}")
+        print(f"Connecting to SMTP server: {sorted_mx[1][1]}")
         # Initialize SMTP server object
-        server = smtplib.SMTP(mx_record)
+        server = smtplib.SMTP(sorted_mx[1][1])
         server.set_debuglevel(0)  # Disable verbose output
 
         # Establish connection with the mail server
-        server.connect(mx_record)
+        server.connect(sorted_mx[1][1])
 
         # Send HELO command for SMTP handshake
         server.helo()
@@ -58,6 +70,10 @@ def validate_email_smtp(email, sender_email='aliduser@yourdomain.com'):   # Repl
         code, message = server.rcpt(email)
         
         if code == 250:
+            # Additional check to see if the domain behaves like a catch-all (accepts any recipient)
+            if is_catch_all_domain(domain, sender_email):
+                print(f"{email} exists on the server (but domain is likely catch-all).")
+                return {"status": False, "reason": "Catch-all domain, email may not exist"}
             print(f"{email} exists on the server!")
             return {"status": True}
         else:
@@ -80,7 +96,7 @@ def validate_email_smtp(email, sender_email='aliduser@yourdomain.com'):   # Repl
 
 # Usage
 if __name__ == '__main__':
-    email_to_check = "anshuman.jswal@tsn.com"    # Replace with the email you want to validate
+    email_to_check = "email_id_to_check"    # Replace with the email you want to validate
     
     result = validate_email_smtp(email_to_check)
 
