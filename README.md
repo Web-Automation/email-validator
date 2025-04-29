@@ -2,7 +2,11 @@
 This Python project provides an email validation tool that verifies the existence of an email address by performing several checks:
 
 - Format Check: Validates if the email follows the correct format.
-- Domain Suggestion: If the domain part of the email appears mistyped (e.g., "gmil.com"), it suggests a correction (e.g., "gmail.com") using fuzzy matching and machine learning techniques.
+- Domain Suggestion: If the domain part of the email appears mistyped (e.g., "gmil.com"), the tool suggests a correction (e.g., "gmail.com").  
+  This is implemented using:
+   - **Fuzzy string matching** (via the `fuzzywuzzy` library)
+   - **Machine learning-based similarity**, using **n-gram character features** with `TfidfVectorizer` and **cosine similarity** from `scikit-learn`.
+
 - Ping Check: Verifies if the domain of the email address responds to ping requests.
 - MX Record Lookup: Checks if the domain has valid Mail Exchange (MX) records.
 - SMTP Check: Connects to the SMTP server of the domain and simulates sending an email to see if the recipient email exists.
