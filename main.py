@@ -94,17 +94,20 @@ def validate_email_smtp(email, sender_email='validuser@yourdomain.com'):   # Rep
             server.quit()
 
 
+
 # Usage
 if __name__ == '__main__':
-    email_to_check = "email_id_to_check"    # Replace with the email you want to validate
+    # Define the email address to check
+    email_to_check = "email_to_test"    # Replace with the email you want to validate
     
+    # Call the validate_email_smtp function to check the validity of the email
     result = validate_email_smtp(email_to_check)
-
+    # Check if the result is valid
     if result["status"]:
-        print(f"{email_to_check} is a valid email address!")
+        print(f"{email_to_check} is a valid email address!")   
     elif result.get("reason") == "Domain suggestion":
         print(f"Did you mean: {result['suggestion']}?")
     elif result.get("reason") == "Invalid format":
         print(f"{email_to_check} is not a valid email address (bad format).")
-    else:
+    else:    # For all other invalid cases (such as domain not found, SMTP failure, etc.)
         print(f"{email_to_check} is not a valid email address.")
