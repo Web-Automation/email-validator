@@ -20,7 +20,7 @@ A comprehensive Python email validation tool that verifies the existence and rel
 
 - **Output Summary:**
 The function returns a JSON object with the email validation results:
-  - `email`: Original email
+  - `email`: Original email that needs to be validated
   - `result`: "Valid", "Invalid", "Suspicious", or "Risky"
   - `did_you_mean`: Suggested correction (if any)
   - `format_valid`: True/False (regex format check)
