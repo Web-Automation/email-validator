@@ -11,35 +11,36 @@ import dns.resolver
 ****************************************************************************************************************************************************"""
 
 def get_mx_record(domain):
+    has_answer_record = False;
+    has_mx_record = False
+    sorted_mx = []
     try:
         # First, ensure the domain exists by querying A records (basic DNS lookup)
         dns.resolver.resolve(domain, 'A') # This will raise an exception if the domain doesn't exist
+        has_answer_record = True;
     except dns.resolver.NXDOMAIN:
         print(f"Domain {domain} does not exist.") 
-        return None
     except Exception as e:
         print(f"Error resolving domain {domain}: {e}")
-        return None
-
+    
+    # Always try MX lookup (even if A record is missing)
     try:
         # Query DNS for MX record
-        answers = dns.resolver.resolve(domain, 'MX')
-        # Query for MX records
         answers = dns.resolver.resolve(domain, 'MX')
         
         # Extract priority and mail server from each MX record
         mx_records = [(r.preference, str(r.exchange).rstrip('.')) for r in answers]  # r.preference = priority (lower = higher priority) & r.exchange = mail server domain (e.g., 'mail.example.com.')
-        # If the list is empty, log and return None
-        if not mx_records:
+        if  mx_records:
+            has_mx_record = True
+            # Sort MX records by priority (ascending order)
+            sorted_mx = sorted(mx_records, key=lambda x: x[0])
+            return has_answer_record, has_mx_record, sorted_mx
+        elif not mx_records:
             print(f"No MX records found for {domain}.")
-            return None
-        
-        # Sort MX records by priority (ascending order)
-        sorted_mx = sorted(mx_records, key=lambda x: x[0])  # Sort by priority
-        return sorted_mx
+            return has_answer_record, has_mx_record, sorted_mx
     except dns.resolver.NoAnswer:
         print(f"MX record for {domain}: (no answer from DNS)")  # No answer from DNS
-        return None
+        return has_answer_record, has_mx_record, sorted_mx
     except Exception as e:
         print(f"Error getting MX record for {domain}: {e}")  # General error handling
-        return None
+        return has_answer_record, has_mx_record, sorted_mx
