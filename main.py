@@ -33,7 +33,7 @@ from suspicious_email import is_catch_all_domain
 *                   - is_catch_all: True/False (if domain accepts all emails)
 ********************************************************************************************************************"""
 
-def validate_email_smtp(email, sender_email='replace_with_a_valid_email_use_in_validation'):   # Replace with the sender_email with a valid email
+def validate_email_smtp(email, sender_email='validuser@yourdomain.com'):   # Replace with the sender_email with a valid email
     # Initialize all diagnostic flags
     format_valid = False
     ping_success = False
@@ -155,7 +155,7 @@ def validate_email_smtp(email, sender_email='replace_with_a_valid_email_use_in_v
 # Usage
 if __name__ == '__main__':
     # Define the email address to check
-    email_to_check = "replace_with_email_you_need_to_validate"    # Replace with the email you want to validate    
+    email_to_check = "validuser@yourdomain.com"    # Replace with the email you want to validate    
     # Call the validate_email_smtp function to check the validity of the email
     start_time = time.time()
     result = validate_email_smtp(email_to_check)
