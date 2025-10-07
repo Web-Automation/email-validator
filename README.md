@@ -20,15 +20,15 @@ A comprehensive Python email validation tool that verifies the existence and rel
 
 - **Output Summary:**
 The function returns a JSON object with the email validation results:
-- `email`: Original email
-- `result`: "Valid", "Invalid", "Suspicious", or "Risky"
-- `did_you_mean`: Suggested correction (if any)
-- `format_valid`: True/False (regex format check)
-- `ping_success`: True/False (domain reachable)
-- `mx_found`: True/False (MX records exist)
-- `single_mx_record`: True/False (only one MX record)
-- `smtp_deliverable`: True/False (SMTP accepts the address)
-- `is_catch_all`: True/False (domain accepts all emails)
+  - `email`: Original email
+  - `result`: "Valid", "Invalid", "Suspicious", or "Risky"
+  - `did_you_mean`: Suggested correction (if any)
+  - `format_valid`: True/False (regex format check)
+  - `ping_success`: True/False (domain reachable)
+  - `mx_found`: True/False (MX records exist)
+  - `single_mx_record`: True/False (only one MX record)
+  - `smtp_deliverable`: True/False (SMTP accepts the address)
+  - `is_catch_all`: True/False (domain accepts all emails)
 
 # Requirements
 
