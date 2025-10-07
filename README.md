@@ -1,8 +1,8 @@
 # email-validator
-This Python project provides an email validation tool that verifies the existence of an email address by performing several checks:
+A comprehensive Python email validation tool that verifies the existence and reliability of email addresses through multiple checks. Designed as modular functions, it can be integrated into various applications, including user registration systems, marketing campaigns, and email list validation.
 
 - **Format Check:** Validates if the email follows the correct syntax using regular expressions.
-- **Domain Suggestion:** If the domain part of the email appears mistyped (e.g., "gmil.com"), the tool suggests a correction (e.g., "gmail.com").  
+- **Domain Suggestion:** Detects typos in the domain and suggests corrections (e.g., "gmil.com"), the tool suggests a correction (e.g., "gmail.com").  
   This is implemented using:
    - Fuzzy string matching (via the `fuzzywuzzy` library)
    - Machine learning-based similarity, using **n-gram character features** with `TfidfVectorizer` and **cosine similarity** from `scikit-learn`.
@@ -18,7 +18,17 @@ This Python project provides an email validation tool that verifies the existenc
     - Detects if a domain accepts any email address (i.e., is a catch-all)
     - Flags such domains as suspicious because the recipient may not actually exist even if the SMTP server accepts it
 
-The project is designed as a set of modular Python functions that can be reused for different use cases. It works by first validating the email format, then checking if the domain responds to pings, and finally verifying if the domain has a valid MX record and SMTP server that accepts the recipient email.
+-- **Output Summary:**
+The function returns a JSON object with the email validation results:
+- `email`: Original email
+- `result`: "Valid", "Invalid", "Suspicious", or "Risky"
+- `did_you_mean`: Suggested correction (if any)
+- `format_valid`: True/False (regex format check)
+- `ping_success`: True/False (domain reachable)
+- `mx_found`: True/False (MX records exist)
+- `single_mx_record`: True/False (only one MX record)
+- `smtp_deliverable`: True/False (SMTP accepts the address)
+- `is_catch_all`: True/False (domain accepts all emails)
 
 # Requirements
 
