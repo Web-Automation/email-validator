@@ -18,7 +18,7 @@ A comprehensive Python email validation tool that verifies the existence and rel
     - Detects if a domain accepts any email address (i.e., is a catch-all)
     - Flags such domains as suspicious because the recipient may not actually exist even if the SMTP server accepts it
 
--- **Output Summary:**
+- **Output Summary:**
 The function returns a JSON object with the email validation results:
 - `email`: Original email
 - `result`: "Valid", "Invalid", "Suspicious", or "Risky"
