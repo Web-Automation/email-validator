@@ -1,5 +1,4 @@
 import smtplib
-import time
 import re
 from ping import ping_domain
 from dns_lookup import get_mx_record
@@ -157,8 +156,5 @@ if __name__ == '__main__':
     # Define the email address to check
     email_to_check = "validuser@yourdomain.com"    # Replace with the email you want to validate    
     # Call the validate_email_smtp function to check the validity of the email
-    start_time = time.time()
     result = validate_email_smtp(email_to_check)
     print(result)  # Log the result(jSON Format)
-    elapsed_time = time.time() - start_time
-    print(f"Entire time {elapsed_time:.3f} seconds")
