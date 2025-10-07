@@ -1,6 +1,5 @@
 import smtplib
 import time
-import random
 import re
 from ping import ping_domain
 from dns_lookup import get_mx_record
@@ -9,105 +8,157 @@ from suspicious_email import is_catch_all_domain
 
 
 
-"""*********************************************************************************************************************************************************************************
+"""******************************************************************************************************************
 * Function to validate an email address by checking its format, domain ping, MX record lookup, and SMTP verification.
 
-* @param {string} email - The email address to validate.
-* @param {string} [sender_email='validuser@yourdomain.com'] - A valid sender email to use in the SMTP validation process (replace 'validuser@yourdomain.com' with a valid email id).
-* @returns {boolean} - Returns True if the email address is valid, False otherwise.
-**********************************************************************************************************************************************************************************"""
+* It performs:
+*   - Format validation
+*   - Domain typo suggestions
+*   - Ping check
+*   - MX record lookup
+*   - SMTP RCPT check
+*   - CSingle MX record & Catch-all based risk classification
+*
+* @param email {string} - Email address to validate.
+* @param sender_email {string} - A valid sender email used for SMTP communication.
+* @returns {dict} - JSON object with full diagnostic result including:
+*                   - email: original email tested
+*                   - result: "Valid", "Invalid", "Suspicious" or "Risky"
+*                   - did_you_mean: suggested corrected email, if any
+*                   - format_valid: True/False (regex format validation)
+*                   - ping_success: True/False (whether domain is reachable)
+*                   - mx_found: True/False (whether MX records are present)
+*                   - single_mx_record: True/False,
+*                   - smtp_deliverable: True/False (whether SMTP accepted the address)
+*                   - is_catch_all: True/False (if domain accepts all emails)
+********************************************************************************************************************"""
 
-def validate_email_smtp(email, sender_email='validuser@yourdomain.com'):   # Replace with the sender_email with a valid email
+def validate_email_smtp(email, sender_email='todi.shishant@gmail.com'):   # Replace with the sender_email with a valid email
+    # Initialize all diagnostic flags
+    format_valid = False
+    ping_success = False
+    mx_found = False
+    single_mx_record = False
+    smtp_deliverable = False
+    is_catch_all = False
+    suggestion = ""
+    result = "Invalid"  # Default result unless proved otherwise
+    
     # Use regex to check if the email format is correct
     regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    if not re.match(regex, email):
-        return {"status": False, "reason": "Invalid format"}  # Exit if the format is invalid
+    format_valid = bool(re.match(regex, email))
 
-    # Extract the domain from the email
-    domain = email.split('@')[1]
+    if format_valid:
+        # Extract the domain part from the email
+        local_part, domain = email.lower().split('@')
 
+   
     # Suggest domain correction if a typo is found (e.g., "gmial.com" -> "gmail.com")
-    suggested_email = suggest_email_correction(email)
-    if suggested_email:
-        return {"status": False, "reason": "Domain suggestion", "suggestion": suggested_email}  # Exit if the domain suggestion is made
+    suggested_email = suggest_email_correction(email) or ""
+    suggestion = suggested_email
     
     # Ping the domain to check if it's active/reachable before checking the MX record
-    if not ping_domain(domain):
-        print(f"{email}: Domain is not responsive to ping. Likely a disposable domain.")
-        return {"status": False, "reason": f"{email}: Domain is not responsive to ping. Likely a disposable domain."}
-
+    ping_success = ping_domain(domain)
+    
     # Retrieve MX record (mail exchange server) for the domain
-    mx_record = get_mx_record(domain)
-    if not mx_record:
-        print(f"{email}: Unable to find a valid mail server (MX record).")
-        return {"status": False, "reason": f"{email}: Unable to find a valid mail server (MX record)."}
-    
-    # If only one MX record exists, treat the email as suspicious (not valid)
-    if len(mx_record) == 1:
-        print(f"{email}: Only one MX record found, treating as suspicious.")
-        return {"status": False, "reason": f"{email}: Only one MX record found, treating as suspicious."}
-    
-    # Sort MX records by priority (ascending order)
-    sorted_mx = sorted(mx_record, key=lambda x: x[0])  # Sort by priority, where lower is higher priority
+    has_a_record, has_mx_record, sorted_mx = get_mx_record(domain)
+    mx_found = has_mx_record
+    print("MX Lookup Result:", has_a_record, has_mx_record, sorted_mx)
 
+    if has_mx_record:
+        # If only one MX record exists, treat the email as suspicious (not valid)
+        if(len(sorted_mx) == 1):
+                single_mx_record = True   
+            
     # Try to connect to the SMTP server with a valid sender email for SMTP verification
     try:
-        print(f"Connecting to SMTP server: {sorted_mx[1][1]}")
-        # Initialize SMTP server object
-        server = smtplib.SMTP(sorted_mx[1][1])
-        server.set_debuglevel(0)  # Disable verbose output
+        if mx_found:
+            print(f"Connecting to SMTP server: {sorted_mx[1][1]}")
+            smtp_host = sorted_mx[1][1]
+    
+            # Initialize SMTP server object
+            with smtplib.SMTP(smtp_host, port=587, timeout=50) as server:
+                server.set_debuglevel(0)  # Disable verbose output
 
-        # Establish connection with the mail server
-        server.connect(sorted_mx[1][1])
+                # Start TLS (encryption)
+                server.starttls()
 
-        # Send HELO command for SMTP handshake
-        server.helo()
+                # Send HELO command for SMTP handshake
+                server.helo()
 
-        # Send MAIL FROM command (using a valid sender email to avoid anti-spoofing issues)
-        server.mail(sender_email)
+                # Send MAIL FROM command (using a valid sender email to avoid anti-spoofing issues)
+                server.mail(sender_email)
 
-        # Send RCPT TO command (the email we are verifying)
-        code, message = server.rcpt(email)
-        
-        if code == 250:
-            # Additional check to see if the domain behaves like a catch-all (accepts any recipient)
-            if is_catch_all_domain(domain, sender_email):
-                print(f"{email} exists on the server (but domain is likely catch-all).")
-                return {"status": False, "reason": "Catch-all domain, email may not exist"}
-            print(f"{email} exists on the server!")
-            return {"status": True}
-        else:
-            print(f"{email} does not exist on the server: {message}")
-            return {"status": False, "reason": f"{email} does not exist on server"}
+                # Send RCPT TO command (the email we are verifying)
+                code, _ = server.rcpt(email)
+                
+                # Check if the SMTP server accepts the recipient email (code 250 means OK)
+                smtp_deliverable = code == 250
+                            
+                # Check if the domain is catch-all (accepts any email)
+                if smtp_deliverable:
+                    is_catch_all = is_catch_all_domain(server, domain)
+                    
     except smtplib.SMTPConnectError:
         print(f"Could not connect to the SMTP server for {domain}")
-        return {"status": False, "reason": f"Could not connect to the SMTP server for {domain}"}
+        pass
     except smtplib.SMTPException as e:
         print(f"SMTP error occurred: {e}")
-        return {"status": False, "reason": f"SMTP error occurred: {e}"}
+        pass
     except Exception as e:
         print(f"Unexpected error: {e}")
-        return {"status": False, "reason": f"Unexpected error: {e}"}
-    finally:
-        # Ensure server.quit() is only called if the server was successfully initialized
-        if 'server' in locals():
-            server.quit()
+        pass
+    
+    # Final result classification whether email is valid, invalid, risky or suspicious
+    # Disposable if: format valid, MX found, ping fails
+    if(
+        format_valid and mx_found and not ping_success
+    ):
+        result = "Disposable"
+    # Invalid if: format bad, ping fails, no MX, SMTP failed, or both catch-all + single MX
+    elif(
+        not format_valid or 
+        not ping_success or 
+        not mx_found or 
+        not smtp_deliverable or 
+        (is_catch_all and single_mx_record)
+    ):
+        result = "Invalid"
+    # Suspicious if catch-all domain only
+    elif is_catch_all:   
+        result = "Suspicious"
+    # Risky if only 1 MX record but not a catch-all 
+    elif single_mx_record:
+        result = "Risky"
+    # Valid if all checks passed and domain not risky/suspicious
+    else:
+        result = "Valid"
 
+    # Return structured diagnostic report
+    return {
+        "email_valid": {
+            "email": email,
+            "result": result,
+            "did_you_mean": suggestion,
+            "format_valid": format_valid,
+            "ping_success": ping_success,
+            "mx_found": mx_found,
+            "single_mx_record": single_mx_record,
+            "smtp_deliverable": smtp_deliverable,
+            "is_catch_all": is_catch_all
+        }
+    }
+    
+    
 
 
 # Usage
 if __name__ == '__main__':
     # Define the email address to check
-    email_to_check = "email_to_test"    # Replace with the email you want to validate
-    
+    email_to_check = "admin@tax2win.com"    # Replace with the email you want to validate    
     # Call the validate_email_smtp function to check the validity of the email
+    start_time = time.time()
     result = validate_email_smtp(email_to_check)
-    # Check if the result is valid
-    if result["status"]:
-        print(f"{email_to_check} is a valid email address!")   
-    elif result.get("reason") == "Domain suggestion":
-        print(f"Did you mean: {result['suggestion']}?")
-    elif result.get("reason") == "Invalid format":
-        print(f"{email_to_check} is not a valid email address (bad format).")
-    else:    # For all other invalid cases (such as domain not found, SMTP failure, etc.)
-        print(f"{email_to_check} is not a valid email address.")
+    print(result)  # Log the result(jSON Format)
+    elapsed_time = time.time() - start_time
+    print(f"Entire time {elapsed_time:.3f} seconds")
