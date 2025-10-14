@@ -13,10 +13,14 @@ A comprehensive Python email validation tool that verifies the existence and rel
     - Validates that the domain has Mail Exchange (MX) records
     - Ensures it isn't a suspicious domain by requiring multiple MX record
 
-- **MTP Check:** Connects to the SMTP server of the domain and simulates sending an email to see if the recipient email exists.
+- **SMTP Check:**
+    - Connects to the SMTP server to simulate sending an email.
+    - Validates whether the recipient email address exists.
+    - Tries port 25 first, and falls back to port 587 with STARTTLS if the connection fails.
+
 - **Catch-All Domain Detection:**
     - Detects if a domain accepts any email address (i.e., is a catch-all)
-    - Flags such domains as suspicious because the recipient may not actually exist even if the SMTP server accepts it
+    - Flags such domains as suspicious because the recipient may not actually exist, even if the SMTP server accepts it
 
 - **Output Summary:**
 The function returns a JSON object with the email validation results:
