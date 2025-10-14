@@ -1,5 +1,4 @@
 import re
-import time
 import socket 
 import smtplib
 from ping import ping_domain
