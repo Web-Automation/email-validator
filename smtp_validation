@@ -58,6 +58,16 @@ def smtp_delivery_check(email, domain, sender_email):
     server = None
     smtp_host = f"{domain}"
     
+    # List of well-known reputable MX host identifiers
+    reputable_mx_hosts = [
+        "outlook.com", "protection.outlook.com", "olc.protection.outlook.com",
+        "gmail.com", "google.com",
+        "zoho.com", "zohomail.com",
+        "yahoo.com", "yahoomail.com",
+        "protonmail.com", "icloud.com"
+    ]
+    reputable_domain = any(rep in smtp_host for rep in reputable_mx_hosts)
+    
     # Try to connect to the SMTP server with a valid sender email for SMTP verification
     # Try SMTP on port 25 first (default SMTP port)
     try:
@@ -94,6 +104,11 @@ def smtp_delivery_check(email, domain, sender_email):
             code, _ = server.rcpt(email)
             smtp_deliverable = code == 250 # 250 means OK (email accepted)
             
+            # If reputated MX host and RCPT fails, mark as None (not real failure)
+            if reputable_domain and not smtp_deliverable:
+                print(f"Reputable MX ({smtp_host}) failed RCPT — marking as unverifiable.")
+                smtp_deliverable = None
+            
             # Check for catch-all behavior if email is deliverable
             if smtp_deliverable:
                 is_catch_all = is_catch_all_domain(server, domain)
@@ -110,6 +125,10 @@ def smtp_delivery_check(email, domain, sender_email):
             safe_quit(server)
     else:
         print(f"Could not establish SMTP connection to {smtp_host}.")
+        if reputable_domain:
+            smtp_deliverable = None  # connection failed for reputable host — treat as unverifiable
+        else:
+            smtp_deliverable = False
         safe_quit(server)
 
     return smtp_deliverable, is_catch_all
