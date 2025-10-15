@@ -1,10 +1,8 @@
 import re
-import socket 
-import smtplib
 from ping import ping_domain
 from dns_lookup import get_mx_record
 from suggestion import suggest_email_correction
-from suspicious_email import is_catch_all_domain
+from smtp_validation import smtp_delivery_check
 
 
 """******************************************************************************************************************
@@ -68,58 +66,17 @@ def validate_email_smtp(email, sender_email='validuser@yourdomain.com'):   # Rep
         if(len(sorted_mx) == 1):
                 single_mx_record = True 
     
-    # Step 7: Begin SMTP validation using MX records      
+    # Step 7: Begin SMTP validation using MX records & test recipient email using RCPT check to see if the email is deliverable   
     if mx_found:
-        print(f"Attempting SMTP connection to: {sorted_mx[0][1]}")
         smtp_host = sorted_mx[0][1] # Use top-priority MX record
-        smtp_connected = False
-        server = None  # To clean up later
-
-        # Try to connect to the SMTP server with a valid sender email for SMTP verification
-        # Try SMTP on port 25 first (default SMTP port)
-        try:
-            print(f"Trying SMTP on port 25 for host: {smtp_host}")
-            server = smtplib.SMTP(smtp_host, port=25, timeout=10)
-            server.set_debuglevel(0)
-            server.helo()
-            server.mail(sender_email)
-            smtp_connected = True
-        except (socket.timeout, TimeoutError) as e:
-            print(f"Port 25 timed out: {e}")
-        except ConnectionRefusedError as e:
-            print(f"Port 25: Connection refused: {e}")
-        except Exception as e:
-            print(f"Port 25 failed due to error: {e}")
-            
-        # If port 25 did not connect, fallback to port 587 with STARTTLS (secure alternative)
-        if not smtp_connected:
-            try:
-                print(f"Falling back to port 587 with STARTTLS for host: {smtp_host}")
-                server = smtplib.SMTP(smtp_host, port=587, timeout=10)
-                server.set_debuglevel(0)
-                server.ehlo()
-                server.starttls()  # Upgrade to secure TLS connection
-                server.ehlo()
-                server.mail(sender_email)
-                smtp_connected = True
-            except Exception as e2:
-                print(f"Port 587 with STARTTLS also failed: {e2}")
-
-        # Step 8: If connected successfully, test the recipient email using RCPT TO
-        if smtp_connected and server:
-            try:
-                code, _ = server.rcpt(email)
-                smtp_deliverable = code == 250   # 250 means OK (email accepted)
-                # Check for catch-all behaviour if email is deliverable
-                if smtp_deliverable:
-                    is_catch_all = is_catch_all_domain(server, domain)
-
-            except smtplib.SMTPException as e:
-                print(f"SMTP RCPT TO error: {e}")
-            except Exception as e:
-                print(f"Unexpected error during RCPT TO: {e}")
-            finally:
-                server.quit()
+        print(f"Attempting SMTP connection to: {smtp_host}")
+        
+        # Check SMTP deliverability and catch-all status
+        smtp_deliverable, is_catch_all = smtp_delivery_check(
+            email=email,
+            domain=smtp_host,      # Use MX host for connection
+            sender_email=sender_email
+        )
             
     # Result classification based on test outcomes whether email is valid, invalid, risky or suspicious    
     # Disposable = all valid but ping fails (possible temporary domain or fake)
