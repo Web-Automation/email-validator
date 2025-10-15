@@ -61,8 +61,9 @@ The project is structured into different components:
 - main.py: The main script that integrates all modules and performs full email validation, including SMTP verification.
 - ping.py: Contains the ping_domain function for pinging the domain.
 - dns_lookup.py: Contains the get_mx_record function to fetch MX records for a domain.
-- suggestion.py: Contains domain correction suggestions
-- suspicious_email.py: It detects catch-all domains
+- suggestion.py: Provides domain correction suggestions using fuzzy matching.
+- suspicious_email.py: Detects if a domain is configured as a catch-all mail server.
+- smtp_validation.py: Handles SMTP-level verification by connecting to the domain’s MX server, performing a handshake, and issuing an RCPT TO command to test if the target email address is deliverable.
 
 Run the Script:
 -  Run the main.py script as 'python main.py'.
