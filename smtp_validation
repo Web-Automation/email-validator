@@ -1,5 +1,6 @@
 import socket
 import smtplib
+from urllib import response
 from suspicious_email import is_catch_all_domain
 
 
@@ -30,7 +31,6 @@ def safe_quit(server):
         print(f"SMTP cleanup error: {e}")
 
 
-
 """******************************************************************************************************************************************************
 * Performs SMTP-level verification to check if a given email address is deliverable.
 * This function attempts to connect to the domain's MX server, performs a mail handshake and sends an SMTP RCPT TO command to simulate sending an email.
@@ -57,16 +57,6 @@ def smtp_delivery_check(email, domain, sender_email):
     smtp_connected = False
     server = None
     smtp_host = f"{domain}"
-    
-    # List of well-known reputable MX host identifiers
-    reputable_mx_hosts = [
-        "outlook.com", "protection.outlook.com", "olc.protection.outlook.com",
-        "gmail.com", "google.com",
-        "zoho.com", "zohomail.com",
-        "yahoo.com", "yahoomail.com",
-        "protonmail.com", "icloud.com"
-    ]
-    reputable_domain = any(rep in smtp_host for rep in reputable_mx_hosts)
     
     # Try to connect to the SMTP server with a valid sender email for SMTP verification
     # Try SMTP on port 25 first (default SMTP port)
@@ -101,34 +91,88 @@ def smtp_delivery_check(email, domain, sender_email):
     #  If connected successfully, test recipient email using RCPT TO
     if smtp_connected and server:
         try:
-            code, _ = server.rcpt(email)
-            smtp_deliverable = code == 250 # 250 means OK (email accepted)
-            
-            # If reputated MX host and RCPT fails, mark as None (not real failure)
-            if reputable_domain and not smtp_deliverable:
-                print(f"Reputable MX ({smtp_host}) failed RCPT — marking as unverifiable.")
+            # Send RCPT TO command to check if recipient exists
+            code, response = server.rcpt(email)
+
+            # Decode response bytes → lowercase string for safe text matching
+            response_str = response.decode().lower() if isinstance(response, bytes) else str(response).lower()
+
+            # Interpret SMTP status code and message to determine deliverability
+            if code in (250, 251, 551):
+                # 250: Accepted
+                # 251: Not local but will forward
+                # 551: Not local but alternative path exists
+                smtp_deliverable = True
+
+            elif code == 550:
+                # 550: "Mailbox unavailable" (ambiguous — can mean invalid, blocked, or temp issue)
+                if "does not exist" in response_str or "no such user" in response_str:
+                    # Clear indication mailbox doesn’t exist
+                    smtp_deliverable = False
+                elif "spamhaus" in response_str or "blocked" in response_str or "blacklist" in response_str:
+                    # Our IP or sender blocked: Cannot verify address
+                    smtp_deliverable = None
+                elif "mailbox full" in response_str or "over quota" in response_str:
+                    # Mailbox temporarily full: Not a hard invalid
+                    smtp_deliverable = None
+                elif "greylist" in response_str or "try again later" in response_str:
+                    # Greylisting, temporary throttle, mailbox likely exists
+                    smtp_deliverable = None
+                else:
+                    # Any other unknown 550 message → treat as indeterminate
+                    smtp_deliverable = None
+
+            elif code in (553, 501):
+                # 553: Mailbox name not allowed / invalid syntax
+                # 501: Syntax error in parameters or address
+                smtp_deliverable = False
+
+            elif code in (421, 450, 451, 452, 500, 502, 503, 504, 552, 554, 252):
+                # 421: Service not available (server busy)
+                # 450–452: Mailbox busy, temp failure, insufficient storage
+                # 500–504: Command or syntax errors
+                # 552: Exceeded storage allocation
+                # 554: Transaction failed / rejected
+                # 252: Cannot verify user but will accept message
+                # → These are not hard failures, so treat as unknown (temporary/unverifiable)
                 smtp_deliverable = None
-            
-            # Check for catch-all behavior if email is deliverable
+
+            else:
+                # Unrecognized or unexpected response code → assume indeterminate
+                smtp_deliverable = None
+
+            # Check for catch-all domain behavior
+            # Only perform this test if recipient was accepted (smtp_deliverable = True)
             if smtp_deliverable:
                 is_catch_all = is_catch_all_domain(server, domain)
+
+        # Error Handling for common SMTP issues during RCPT phase
         except smtplib.SMTPServerDisconnected:
             print("SMTP connection closed unexpectedly during RCPT check.")
             smtp_deliverable = None
+
         except smtplib.SMTPRecipientsRefused as e:
+            # Happens if RCPT command was outright rejected by the server
             print(f"SMTP RCPT refused: {e}")
-        except smtplib.SMTPException as e:
-            print(f"SMTP RCPT TO error: {e}")
-        except Exception as e:
-            print(f"Unexpected error during RCPT TO: {e}")
-        finally:
-            safe_quit(server)
-    else:
-        print(f"Could not establish SMTP connection to {smtp_host}.")
-        if reputable_domain:
-            smtp_deliverable = None  # connection failed for reputable host — treat as unverifiable
-        else:
             smtp_deliverable = False
+
+        except smtplib.SMTPException as e:
+            # Covers other general SMTP-related exceptions
+            print(f"SMTP RCPT TO error: {e}")
+            smtp_deliverable = None
+
+        except Exception as e:
+            # Catches unexpected runtime or network issues
+            print(f"Unexpected error during RCPT TO: {e}")
+            smtp_deliverable = None
+
+        finally:
+            # Always terminate SMTP session gracefully
+            safe_quit(server)
+
+    # If SMTP never connected, mark as undeliverable (cannot verify)
+    else:
+        smtp_deliverable = False
         safe_quit(server)
 
     return smtp_deliverable, is_catch_all
