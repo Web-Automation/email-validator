@@ -83,17 +83,21 @@ def validate_email_smtp(email, sender_email='validuser@yourdomain.com'):   # Rep
     if format_valid and mx_found and not ping_success:
         result = "Disposable"
 
-    # Invalid: Any core failure like bad format, ping failure, no MX record
-    elif not format_valid or not ping_success or not mx_found:
+    # Invalid: Any core failure like bad format, ping failure, no MX record, or mailbox doesn't exist
+    elif not format_valid or not ping_success or not mx_found or smtp_deliverable is False:
         result = "Invalid"
 
-    # Risky: If SMTP deliverability is None and MX exists, or if the domain is a catch-all
-    elif (smtp_deliverable is None and mx_found) or is_catch_all:
+    # Suspicious: If SMTP deliverability is None and MX exists, or if the domain is a catch-all
+    elif is_catch_all:
+        result = "Suspicious"
+
+    # Risky: Domain has only one MX record, and it's not a catch-all
+    elif single_mx_record:
         result = "Risky"
 
-    # Suspicious: Domain has only one MX record, and it's not a catch-all
-    elif single_mx_record:
-        result = "Suspicious"
+    # Safe to Send: All checks passed, OR SMTP deliverability is unknown (e.g., blocked provider)
+    elif smtp_deliverable is None and (format_valid and ping_success and mx_found):
+        result = "Valid"
  
     # Safe to Send: All checks passed, no issues, domain is healthy
     else:
