@@ -1,6 +1,5 @@
 import socket
 import smtplib
-from urllib import response
 from suspicious_email import is_catch_all_domain
 
 
@@ -42,7 +41,9 @@ def safe_quit(server):
 *   - Gracefully handle disconnections (especially from Outlook MX servers)
 
 * @param email {string} - The recipient email address to validate.
-* @param domain {string} - The MX host domain used for SMTP communication.
+* @param mx_hosts {list} - List of (priority, host) tuples, sorted ascending by priority
+*                          (lower = higher priority). Each host is tried in order until one connects.
+* @param domain {string} - The recipient's actual domain (e.g. "example.com"), used for the catch-all probe.
 * @param sender_email {string} - A valid sender email used during SMTP handshake.
 * @returns {tuple} - (smtp_deliverable, is_catch_all)
 *                    - smtp_deliverable: True  → RCPT accepted (likely valid)
@@ -51,14 +52,12 @@ def safe_quit(server):
 *                    - is_catch_all: True if the domain accepts all addresses, False otherwise.
 *********************************************************************************************************************************************************"""
 
-def smtp_delivery_check(email, domain, sender_email):
-    smtp_deliverable = False
-    is_catch_all = False
-    smtp_connected = False
-    server = None
-    smtp_host = f"{domain}"
-    
-    # Try to connect to the SMTP server with a valid sender email for SMTP verification
+def _connect_to_mx_host(smtp_host, sender_email):
+    """
+    Attempts to open an SMTP session with a single MX host: port 25 first,
+    falling back to port 587 with STARTTLS. Returns a connected smtplib.SMTP
+    instance on success, or None if both attempts failed.
+    """
     # Try SMTP on port 25 first (default SMTP port)
     try:
         print(f"Trying SMTP on port 25 for host: {smtp_host}")
@@ -66,7 +65,7 @@ def smtp_delivery_check(email, domain, sender_email):
         server.set_debuglevel(0)
         server.helo()
         server.mail(sender_email)
-        smtp_connected = True
+        return server
     except (socket.timeout, TimeoutError) as e:
         print(f"Port 25 timed out: {e}")
     except ConnectionRefusedError as e:
@@ -74,22 +73,39 @@ def smtp_delivery_check(email, domain, sender_email):
     except Exception as e:
         print(f"Port 25 failed due to error: {e}")
 
-     # If port 25 did not connect, fallback to port 587 with STARTTLS (secure alternative)
-    if not smtp_connected:
-        try:
-            print(f"Falling back to port 587 with STARTTLS for host: {smtp_host}")
-            server = smtplib.SMTP(smtp_host, port=587, timeout=10)
-            server.set_debuglevel(0)
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
-            server.mail(sender_email)
-            smtp_connected = True
-        except Exception as e2:
-            print(f"Port 587 with STARTTLS also failed: {e2}")
+    # If port 25 did not connect, fallback to port 587 with STARTTLS (secure alternative)
+    try:
+        print(f"Falling back to port 587 with STARTTLS for host: {smtp_host}")
+        server = smtplib.SMTP(smtp_host, port=587, timeout=10)
+        server.set_debuglevel(0)
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
+        server.mail(sender_email)
+        return server
+    except Exception as e2:
+        print(f"Port 587 with STARTTLS also failed: {e2}")
+
+    return None
+
+
+def smtp_delivery_check(email, mx_hosts, domain, sender_email):
+    smtp_deliverable = False
+    is_catch_all = False
+    server = None
+
+    # Walk the MX hosts in priority order until one accepts a connection.
+    # Previously only sorted_mx[0] was ever tried, so a down primary MX meant
+    # an automatic failure even when a working secondary MX existed.
+    for priority, smtp_host in mx_hosts:
+        server = _connect_to_mx_host(smtp_host, sender_email)
+        if server is not None:
+            print(f"Connected to MX host: {smtp_host}")
+            break
+        print(f"Could not connect to MX host {smtp_host}; trying next MX record if available.")
 
     #  If connected successfully, test recipient email using RCPT TO
-    if smtp_connected and server:
+    if server is not None:
         try:
             # Send RCPT TO command to check if recipient exists
             code, response = server.rcpt(email)
@@ -143,6 +159,8 @@ def smtp_delivery_check(email, domain, sender_email):
 
             # Check for catch-all domain behavior
             # Only perform this test if recipient was accepted (smtp_deliverable = True)
+            # Use the actual recipient domain here, NOT smtp_host - the probe address needs
+            # to be random@example.com, not random@aspmx.l.google.com
             if smtp_deliverable:
                 is_catch_all = is_catch_all_domain(server, domain)
 
@@ -170,9 +188,9 @@ def smtp_delivery_check(email, domain, sender_email):
             # Always terminate SMTP session gracefully
             safe_quit(server)
 
-    # If SMTP never connected, mark as undeliverable (cannot verify)
+    # If none of the MX hosts connected, mark as undeliverable (cannot verify)
     else:
+        print("Could not connect to any MX host for this domain.")
         smtp_deliverable = False
-        safe_quit(server)
 
     return smtp_deliverable, is_catch_all
