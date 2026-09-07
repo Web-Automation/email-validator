@@ -44,15 +44,31 @@ def validate_email_smtp(email, sender_email='validuser@yourdomain.com'):   # Rep
     regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     format_valid = bool(re.match(regex, email))
 
-    # Step 2: If format is valid, extract domain: 
-    if format_valid:
-        local_part, domain = email.lower().split('@') # Extract the domain part from the email
+    # Step 2: If format is invalid, there is no domain to run further checks against -
+    # return immediately instead of falling through to code that assumes `domain` exists.
+    if not format_valid:
+        return {
+            "email_valid": {
+                "email": email,
+                "result": "Invalid",
+                "did_you_mean": suggest_email_correction(email) or "",
+                "format_valid": False,
+                "ping_success": False,
+                "mx_found": False,
+                "single_mx_record": False,
+                "smtp_deliverable": False,
+                "is_catch_all": False
+            }
+        }
 
-    # Step 3: Suggest domain correction if a typo is found (e.g., "gmial.com" -> "gmail.com")
+    # Step 3: Format is confirmed valid, so it is now safe to extract the domain
+    local_part, domain = email.lower().split('@')
+
+    # Step 4: Suggest domain correction if a typo is found (e.g., "gmial.com" -> "gmail.com")
     suggested_email = suggest_email_correction(email) or ""
     suggestion = suggested_email
-    
-    # Step 4: Ping the domain to check if it's active/reachable before checking the MX record
+
+    # Step 5: Ping the domain to check if it's active/reachable before checking the MX record
     ping_success = ping_domain(domain)
 
     # Step 5: Retrieve MX record (mail exchange server) for the domain
@@ -68,13 +84,15 @@ def validate_email_smtp(email, sender_email='validuser@yourdomain.com'):   # Rep
     
     # Step 7: Begin SMTP validation using MX records & test recipient email using RCPT check to see if the email is deliverable   
     if mx_found:
-        smtp_host = sorted_mx[0][1] # Use top-priority MX record
-        print(f"Attempting SMTP connection to: {smtp_host}")
-        
-        # Check SMTP deliverability and catch-all status
+        print(f"Attempting SMTP connection using {len(sorted_mx)} MX record(s) for {domain}")
+
+        # Check SMTP deliverability and catch-all status.
+        # sorted_mx is tried in priority order internally, falling back to the
+        # next MX record if the current one refuses the connection.
         smtp_deliverable, is_catch_all = smtp_delivery_check(
             email=email,
-            domain=smtp_host,      # Use MX host for connection
+            mx_hosts=sorted_mx,    # full priority-ordered MX list, with fallback
+            domain=domain,         # actual recipient domain, used for the catch-all probe
             sender_email=sender_email
         )
             
