@@ -2,10 +2,8 @@
 A comprehensive Python email validation tool that verifies the existence and reliability of email addresses through multiple checks. Designed as modular functions, it can be integrated into various applications, including user registration systems, marketing campaigns, and email list validation.
 
 - **Format Check:** Validates if the email follows the correct syntax using regular expressions.
-- **Domain Suggestion:** Detects typos in the domain and suggests corrections (e.g., "gmil.com"), the tool suggests a correction (e.g., "gmail.com").  
-  This is implemented using:
-   - Fuzzy string matching (via the `fuzzywuzzy` library)
-   - Machine learning-based similarity, using **n-gram character features** with `TfidfVectorizer` and **cosine similarity** from `scikit-learn`.
+- **Domain Suggestion:** Detects typos in the domain and suggests corrections (e.g., "gmil.com" → "gmail.com"). Currently implemented using fuzzy string matching (via the `fuzzywuzzy` library).
+  An ML-based alternative (n-gram character features with `TfidfVectorizer` and cosine similarity from `scikit-learn`) also exists in `suggestion.py` but is currently disabled (commented out) in favor of the fuzzy-matching approach. Enable it there if you want to use it instead.
 
 - **Ping Check:** Pings the domain to confirm it is reachable and not a disposable or dead domain.
 - **MX Record Lookup:**
@@ -45,12 +43,13 @@ The function returns a JSON object with the email validation results:
   - socket: Handles low-level network connections and timeouts.
   - platform: Used for OS-specific ping operations.
   - fuzzywuzzy: Used for fuzzy string matching in domain correction
-  - scikit-learn: Used for ML-based domain suggestions using TF-IDF & cosine similarity
+  - scikit-learn: Optional — only needed if you re-enable the commented-out ML-based domain suggestion path in `suggestion.py`. Not required for the tool as currently shipped.
  
 # Usage
 
 Install dependencies:
-- pip install dnspython fuzzywuzzy scikit-learn
+- pip install dnspython fuzzywuzzy
+- (optional) pip install scikit-learn — only needed if you re-enable the ML-based domain suggestion path in `suggestion.py`
 
 Configuration:
 - Replace the default sender email i.e. 'validuser@yourdomain.com' with a valid email id in the main.py file in function 'def validate_email_smtp(email, sender_email='validuser@yourdomain.com')'.
