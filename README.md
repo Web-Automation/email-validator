@@ -67,15 +67,3 @@ The project is structured into different components:
 
 Run the Script:
 -  Run the main.py script as 'python main.py'.
-
-
-# License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-
-# Acknowledgements
-
-- Thanks to 'dnspython' for providing the DNS resolver.
-- Thanks to Python's built-in 'smtplib' module for handling SMTP interactions
-- `fuzzywuzzy` and `scikit-learn` for typo correction and similarity matching
