@@ -18,7 +18,7 @@ COMMON_DOMAINS = [
 * Function that suggests the closest known domain using fuzzy string matching.
 
 * @param {string} user_domain - The domain part of the email entered by the user.
-* @returns {string|null} - Returns the closest domain suggestion if the score ≥ 80, otherwise None.
+* @returns {string|null} - Returns the closest domain suggestion if the score ≥ 75, otherwise None.
 ******************************************************************************************************"""
 
 def suggest_with_fuzzywuzzy(user_domain):
@@ -35,7 +35,7 @@ def suggest_with_fuzzywuzzy(user_domain):
             best_match = domain
             best_score = score
             
-    # If the best score is above a threshold (80), return the best match, else return None
+    # If the best score is above a threshold (75), return the best match, else return None
     return best_match if best_score >= 75 else None
 
 
